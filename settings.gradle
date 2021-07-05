@@ -1,0 +1,26 @@
+// Add external plugins
+pluginManagement {
+    // Add mavens to plugin management
+    repositories {
+        mavenCentral()
+        maven {
+            name 'Forge'
+            url 'https://maven.minecraftforge.net'
+        }
+        maven {
+            name 'Fabric'
+            url 'https://maven.fabricmc.net/'
+        }
+        gradlePluginPortal()
+    }
+
+    // Resolve ForgeGradle within plugin block
+    resolutionStrategy.eachPlugin {
+        if (requested.id.id == 'net.minecraftforge.gradle')
+            useModule group: requested.id, name: 'ForgeGradle', version: requested.version
+    }
+}
+
+// Set project data
+rootProject.name = 'dynamicregistries'
+include 'core', 'forge', 'fabric'

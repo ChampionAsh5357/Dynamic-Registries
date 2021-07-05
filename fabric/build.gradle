@@ -1,0 +1,44 @@
+// Add plugins for Fabric Loom
+plugins {
+    id 'library-conventions'
+    id 'fabric-loom' version 'latest.release'
+}
+
+// Set project information
+classifier.id = project.projectFabric
+classifier.implVersion = project.projectVersion
+
+// Include Fabric as a dependency
+dependencies {
+    minecraft group: 'com.mojang', name: 'minecraft', version: project.fabricMinecraftVersion
+    mappings minecraft.officialMojangMappings()
+    modImplementation group: 'net.fabricmc', name: 'fabric-loader', version: project.fabricLoaderVersion
+    modImplementation group: 'net.fabricmc.fabric-api', name: 'fabric-api', version: project.fabricApiVersion
+    implementation(project(':core')) {
+        transitive = false
+    }
+}
+
+// Set mod version
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+// Set specific publication data
+publishing {
+    publications.create(archivesBaseName, MavenPublication) {
+        artifact(remapJar) {
+            builtBy remapJar
+        }
+        artifact(sourcesJar) {
+            builtBy remapSourcesJar
+        }
+        pom {
+            name = "$project.projectName - Fabric"
+            description = "A Fabric implementation of dynamic registries"
+        }
+    }
+}
