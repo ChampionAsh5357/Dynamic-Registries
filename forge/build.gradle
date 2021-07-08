@@ -83,9 +83,6 @@ configurations {
 // Include MinecraftForge as a dependency
 dependencies {
     minecraft group: 'net.minecraftforge', name: 'forge', version: "$project.forgeMinecraftVersion-$project.forgeApiVersion"
-    shade implementation(project(':core')) {
-        transitive = false
-    }
 }
 
 // Add shadow jar information

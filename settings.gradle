@@ -7,10 +7,6 @@ pluginManagement {
             name 'Forge'
             url 'https://maven.minecraftforge.net'
         }
-        maven {
-            name 'Fabric'
-            url 'https://maven.fabricmc.net/'
-        }
         gradlePluginPortal()
     }
 
@@ -23,4 +19,4 @@ pluginManagement {
 
 // Set project data
 rootProject.name = 'dynamicregistries'
-include 'core', 'forge', 'fabric'
+include 'forge'

@@ -19,3 +19,6 @@ out
 # Gradle
 build
 .gradle
+
+# Other
+run
