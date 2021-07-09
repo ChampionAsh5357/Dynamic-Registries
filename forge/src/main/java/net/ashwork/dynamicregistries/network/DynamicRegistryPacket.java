@@ -26,17 +26,37 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 
-//TODO: Document and implement
+/**
+ * A packet that is used to encode registry information from the server
+ * to the client.
+ */
 public class DynamicRegistryPacket {
 
+    /**
+     * The stage being synced. Only used for the dynamic stage currently.
+     */
     private final String stage;
+    /**
+     * A map of registry names to their encoded registries
+     */
     private final Map<ResourceLocation, CompoundNBT> snapshots;
 
+    /**
+     * Constructs the packet on the server.
+     *
+     * @param stage the registry stage
+     * @param snapshots a map of registry names to their encoded registries
+     */
     public DynamicRegistryPacket(final String stage, final Map<ResourceLocation, CompoundNBT> snapshots) {
         this.stage = stage;
         this.snapshots = snapshots;
     }
 
+    /**
+     * Constructs the packet on the client. Decodes the data from the given {@code buffer}.
+     *
+     * @param buffer a buffer containing the sent packet information
+     */
     public DynamicRegistryPacket(final PacketBuffer buffer) {
         this(buffer.readUtf(), Util.make(() -> {
             final int size = buffer.readInt();
@@ -51,7 +71,12 @@ public class DynamicRegistryPacket {
         }));
     }
 
-    //TODO: Check how to do partial packets
+    /**
+     * Encodes the data to a {@code buffer} to be sent to the client.
+     *
+     * @param buffer the buffer to encode the data to
+     */
+    //TODO: Check how to do partial packets, send login packet for initial syncing
     public void encode(final PacketBuffer buffer) {
         buffer.writeUtf(this.stage);
         buffer.writeInt(this.snapshots.size());
@@ -61,6 +86,12 @@ public class DynamicRegistryPacket {
         });
     }
 
+    /**
+     * Handles what do to with the data once sent to the client.
+     *
+     * @param context a supplier containing the network context
+     * @return if the packet was handled, should always be {@code true}.
+     */
     public boolean handle(Supplier<NetworkEvent.Context> context) {
         context.get().enqueueWork(() ->
                 DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () ->

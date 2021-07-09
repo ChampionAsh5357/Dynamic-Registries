@@ -17,10 +17,7 @@ import com.mojang.serialization.DynamicOps;
 import net.ashwork.dynamicregistries.entry.ICodecEntry;
 import net.ashwork.dynamicregistries.entry.IDynamicEntry;
 import net.ashwork.dynamicregistries.network.DynamicRegistryPacket;
-import net.ashwork.dynamicregistries.registry.DynamicRegistry;
-import net.ashwork.dynamicregistries.registry.DynamicRegistryBuilder;
-import net.ashwork.dynamicregistries.registry.IDynamicRegistry;
-import net.ashwork.dynamicregistries.registry.IRegistrableDynamicRegistry;
+import net.ashwork.dynamicregistries.registry.*;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.NBTDynamicOps;
 import net.minecraft.util.ResourceLocation;
@@ -33,20 +30,59 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-//TODO: Document and implement
+/**
+ * A manager used to handle the stages of dynamic registries. There are two main stages:
+ * {@link #STATIC} and {@link #DYNAMIC}. {@link #STATIC} is responsible for handling registries
+ * and entries that are created within the codebase. The entries themselves can be overridden.
+ * {@link #DYNAMIC} is responsible for promoting the static entries and registering any dynamic
+ * ones to their registry.
+ */
 public class DynamicRegistryManager {
 
+    /**
+     * Responsible for handling registries and entries that are created within the codebase.
+     */
     public static final DynamicRegistryManager STATIC = new DynamicRegistryManager("Static");
+    /**
+     * Responsible for promoting the static entries and registering any dynamic ones to their registry.
+     */
     public static final DynamicRegistryManager DYNAMIC = new DynamicRegistryManager("Dynamic");
 
+    /**
+     * A marker that represents all logging information while creating a registry.
+     */
     private static final Marker CREATE = MarkerManager.getMarker("Create Registry");
+    /**
+     * A marker that represents all logging information while reloading a registry.
+     */
     private static final Marker RELOAD = MarkerManager.getMarker("Reload Registry");
-    private final String stage;
-    private final BiMap<ResourceLocation, DynamicRegistry<?, ?>> registries;
-    private final BiMap<Class<? extends IDynamicEntry<?>>, ResourceLocation> superTypes;
-    private final Set<ResourceLocation> synced, saved;
-    private final Map<ResourceLocation, ResourceLocation> legacyNames;
 
+    /**
+     * The stage name of the manager.
+     */
+    private final String stage;
+    /**
+     * The registries within the manager.
+     */
+    private final BiMap<ResourceLocation, DynamicRegistry<?, ?>> registries;
+    /**
+     * The already existing super types of the manager.
+     */
+    private final BiMap<Class<? extends IDynamicEntry<?>>, ResourceLocation> superTypes;
+    /**
+     * A set of registry names that will be synced and saved respectively.
+     */
+    private final Set<ResourceLocation> synced, saved;
+    /**
+     * The prior names of the registries.
+     */
+    private final Map<ResourceLocation, ResourceLocation> legacyNames; //TODO: Implement legacy names
+
+    /**
+     * Constructs a staged manager.
+     *
+     * @param stage the stage name of the manager
+     */
     private DynamicRegistryManager(final String stage) {
         this.stage = stage;
         this.registries = HashBiMap.create();
@@ -56,23 +92,64 @@ public class DynamicRegistryManager {
         this.legacyNames = new HashMap<>();
     }
 
+    /**
+     * Gets the stage name of the manager
+     *
+     * @return the stage name of the manager
+     */
     public String getName() {
         return this.stage;
     }
 
+    /**
+     * Gets a {@link DynamicRegistry} from its name.
+     *
+     * @param name the name of the dynamic registry
+     * @param <V> the super type of the dynamic registry entry
+     * @param <C> the super type of the codec registry entry
+     * @return the dynamic registry, or {@code null} if none exists
+     */
+    @Nullable
     @SuppressWarnings("unchecked")
     public <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> DynamicRegistry<V, C> getRegistry(final ResourceLocation name) {
         return (DynamicRegistry<V, C>) this.registries.get(name);
     }
 
+    /**
+     * Gets a {@link DynamicRegistry} from its entry super class.
+     *
+     * @param entryClass the entry super class of the dynamic registry
+     * @param <V> the super type of the dynamic registry entry
+     * @param <C> the super type of the codec registry entry
+     * @return the dynamic registry, or {@code null} if none exists
+     */
+    @Nullable
     public <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> DynamicRegistry<V, C> getRegistry(final Class<? super V> entryClass) {
         return this.getRegistry(this.superTypes.get(entryClass));
     }
 
+    /**
+     * Gets a the name of a registry from its registry instance.
+     *
+     * @param registry the dynamic registry instance
+     * @param <V> the super type of the dynamic registry entry
+     * @param <C> the super type of the codec registry entry
+     * @return the name of the dynamic registry, or {@code null} if none exists
+     */
+    @Nullable
     public <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> ResourceLocation getRegistryName(final DynamicRegistry<V, C> registry) {
         return this.registries.inverse().get(registry);
     }
 
+    /**
+     * Reloads all dynamic registries with the static data from the {@code currentStage}
+     * and then registers the encoded data.
+     *
+     * @param entries a map of identifiers to encoded registry objects
+     * @param ops the operator used to transmute the encoded object
+     * @param currentStage the current stage of the registry the data is promoted from
+     * @param <T> the type of the encoded object
+     */
     public <T> void reload(final Map<ResourceLocation, T> entries, final DynamicOps<T> ops, final DynamicRegistryManager currentStage) {
         final Map<ResourceLocation, Map<ResourceLocation, T>> registryEntries = new HashMap<>();
         entries.forEach((id, encodedEntry) -> {
@@ -91,6 +168,16 @@ public class DynamicRegistryManager {
         });
     }
 
+    /**
+     * Promotes a registry from some existing {@code stage} to this one. Any
+     * data in the existing registry stage is promoted via {@link IStageableDynamicRegistry#copy(DynamicRegistryManager)}.
+     *
+     * @param name the name of the dynamic registry to promote
+     * @param stage the stage being promoted from
+     * @param <V> the super type of the dynamic registry entry
+     * @param <C> the super type of the codec registry entry
+     * @return a new instance of the dynamic registry in this stage
+     */
     @Nullable
     protected <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> DynamicRegistry<V, C> promoteFromStage(final ResourceLocation name, DynamicRegistryManager stage) {
         if (!this.registries.containsKey(name)) {
@@ -108,6 +195,15 @@ public class DynamicRegistryManager {
         return this.getRegistry(name);
     }
 
+    /**
+     * Creates a new dynamic registry for the current configuration.
+     *
+     * @param builder the builder instance containing the registry configurations
+     * @param <V> the super type of the dynamic registry entry
+     * @param <C> the super type of the codec registry entry
+     * @return a new dynamic registry
+     * @throws IllegalArgumentException if there already exists an existing super type or parent of a dynamic registry type
+     */
     public <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> IDynamicRegistry<V, C> createRegistry(final DynamicRegistryBuilder<V, C> builder) {
         final ResourceLocation name = builder.getName();
         final Set<Class<?>> parents = new HashSet<>();
@@ -127,6 +223,12 @@ public class DynamicRegistryManager {
         return this.getRegistry(name);
     }
 
+    /**
+     * Gets all the superclasses and superinterfaces of {@code type} and stores them within {@code types}.
+     *
+     * @param type the class to get all parents of
+     * @param types the set holding all types of this class
+     */
      protected static void findSuperTypes(final Class<?> type, final Set<Class<?>> types) {
         if (type == null || type == Object.class) return;
         types.add(type);
@@ -134,11 +236,23 @@ public class DynamicRegistryManager {
         findSuperTypes(type.getSuperclass(), types);
     }
 
+    /**
+     * Adds a legacy name for a particular registry.
+     *
+     * @param legacyName the previous name of the registry
+     * @param currentName the current name of the registry
+     */
     protected void addLegacyName(final ResourceLocation legacyName, final ResourceLocation currentName) {
         if (this.legacyNames.putIfAbsent(legacyName, currentName) != null)
             throw new IllegalArgumentException("Legacy name is already to the existing registry " + this.legacyNames.get(legacyName) + ": " + legacyName + " -> " + currentName);
     }
 
+    /**
+     * Returns a stream of entries containing the wanted registries.
+     *
+     * @param lookup the registry filter
+     * @return a stream of entries of name to dynamic registry
+     */
     protected Stream<Map.Entry<ResourceLocation, DynamicRegistry<?, ?>>> registries(final Lookup lookup) {
         return this.registries.entrySet().stream().filter(entry -> {
             switch (lookup) {
@@ -154,6 +268,10 @@ public class DynamicRegistryManager {
         });
     }
 
+    /**
+     * Sends the syncable registries to the client via {@link DynamicRegistryPacket}.
+     */
+    //TODO: Reimplement in a packet splitting way
     public void sendToClient() {
         DynamicRegistries.instance().getChannel().send(PacketDistributor.ALL.noArg(),
                 new DynamicRegistryPacket(this.getName(), this.registries(Lookup.SYNC)
@@ -164,9 +282,21 @@ public class DynamicRegistryManager {
         );
     }
 
+    /**
+     * An identifier used to determine which registries to get from the manager.
+     */
     public enum Lookup {
+        /**
+         * Gets all registries.
+         */
         ALL,
+        /**
+         * Gets only savable registries.
+         */
         SAVE,
+        /**
+         * Gets only syncable registries.
+         */
         SYNC
     }
 }

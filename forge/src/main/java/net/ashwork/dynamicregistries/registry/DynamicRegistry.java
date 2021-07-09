@@ -81,7 +81,7 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
     /**
      * The entry aliases within the registry.
      */
-    protected final Map<ResourceLocation, ResourceLocation> aliases;
+    protected final Map<ResourceLocation, ResourceLocation> aliases; //TODO: implement aliases
 
     /**
      * The default value of the registry.
