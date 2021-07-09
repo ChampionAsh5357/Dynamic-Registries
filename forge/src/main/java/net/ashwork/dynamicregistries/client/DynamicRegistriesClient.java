@@ -29,6 +29,9 @@ public final class DynamicRegistriesClient {
 
     /**
      * Used for setting up all buses and clientside hooks within the mod.
+     *
+     * @param modBus the mod event bus
+     * @param forgeBus the forge event bus
      */
     public DynamicRegistriesClient(final IEventBus modBus, final IEventBus forgeBus) {
         instance = this;

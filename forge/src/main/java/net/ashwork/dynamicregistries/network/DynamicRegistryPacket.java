@@ -51,6 +51,7 @@ public class DynamicRegistryPacket {
         }));
     }
 
+    //TODO: Check how to do partial packets
     public void encode(final PacketBuffer buffer) {
         buffer.writeUtf(this.stage);
         buffer.writeInt(this.snapshots.size());

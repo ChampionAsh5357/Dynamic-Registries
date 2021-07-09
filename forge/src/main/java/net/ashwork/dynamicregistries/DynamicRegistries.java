@@ -39,6 +39,7 @@ import org.apache.logging.log4j.MarkerManager;
 
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * The base mod class for dynamic registries.
@@ -66,13 +67,14 @@ public final class DynamicRegistries {
      */
     private final DynamicRegistryListener registryListener;
     /**
-     * A network channel for sending data across the network.
-     */
-    private final SimpleChannel channel;
-    /**
      * Gets the current data storage of a server.
      */
     private final Function<MinecraftServer, DynamicRegistryData> dataGetter;
+
+    /**
+     * A network channel for sending data across the network.
+     */
+    private SimpleChannel channel;
     /**
      * Keeps track of whether the current registry cache is invalidated and needs to be updated.
      */
@@ -84,7 +86,6 @@ public final class DynamicRegistries {
     public DynamicRegistries() {
         instance = this;
         this.registryListener = new DynamicRegistryListener();
-        this.channel = NetworkRegistry.newSimpleChannel(new ResourceLocation(ID, "network"), () -> NETWORK_PROTOCOL_VERSION, str -> Objects.equals(str, NETWORK_PROTOCOL_VERSION), str -> Objects.equals(str, NETWORK_PROTOCOL_VERSION));
         this.dataGetter = server -> Objects.requireNonNull(server.getLevel(World.OVERWORLD), "The Overworld is currently null, make sure you are not calling this ").getDataStorage().computeIfAbsent(DynamicRegistryData::new, ID);
 
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus(),
@@ -112,7 +113,7 @@ public final class DynamicRegistries {
      * @return the network channel
      */
     public SimpleChannel getChannel() {
-        return channel;
+        return Objects.requireNonNull(this.channel, "Attempted to get channel before initialization during common setup");
     }
 
     /**
@@ -129,11 +130,14 @@ public final class DynamicRegistries {
      * @param event the event instance
      */
     private void setupRegistries(final FMLCommonSetupEvent event) {
+        final Predicate<String> networkVersionCheck = NetworkRegistry.acceptMissingOr(NETWORK_PROTOCOL_VERSION);
+        this.channel = NetworkRegistry.newSimpleChannel(new ResourceLocation(ID, "network"), () -> NETWORK_PROTOCOL_VERSION, networkVersionCheck, networkVersionCheck);
         this.channel.messageBuilder(DynamicRegistryPacket.class, 0, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(DynamicRegistryPacket::encode)
                 .decoder(DynamicRegistryPacket::new)
                 .consumer(DynamicRegistryPacket::handle)
                 .add();
+
         event.enqueueWork(() -> {
             LOGGER.debug(MarkerManager.getMarker("New Registry"), "Creating new registries");
             ModLoader.get().postEvent(new DynamicRegistryEvent.NewRegistry());

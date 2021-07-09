@@ -38,28 +38,72 @@ import java.util.function.Function;
  * @param <V> the super type of the dynamic registry entry
  * @param <C> the super type of the codec registry entry
  */
-//TODO: Document and implement
-public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> implements ICodecRegistrableDynamicRegistry<V, C>, IModifiableDynamicRegistry<V, C>, ISnapshotDynamicRegistry<V, C> {
+public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> implements ICodecRegistrableDynamicRegistry<V, C>, IModifiableDynamicRegistry<V, C>, ISnapshotDynamicRegistry<V, C>, IStageableDynamicRegistry<V, C> {
 
+    /**
+     * The name of the registry.
+     */
     private final ResourceLocation name;
+    /**
+     * The registry configuration.
+     */
     protected final DynamicRegistryBuilder<V, C> builder;
+    /**
+     * The stage the registry is constructed within.
+     */
+    private final DynamicRegistryManager stage;
+    /**
+     * The super class of the registry entries.
+     */
     private final Class<V> superType;
+    /**
+     * The codec registry to encode/decode these registry entries.
+     */
     private final IForgeRegistry<C> codecRegistry;
+    /**
+     * The default key of the registry.
+     */
     @Nullable
     private final ResourceLocation defaultKey;
+    /**
+     * The registry entry codecs in their simple and exploded form.
+     */
     private final Codec<V> registryEntryCodec, explodedEntryCodec;
+    /**
+     * The snapshot codec for encoding/decoding the registry.
+     */
     private final Codec<DynamicRegistry<V, C>> snapshotCodec;
 
+    /**
+     * The entries within the registry.
+     */
     protected final BiMap<ResourceLocation, V> entries;
+    /**
+     * The entry aliases within the registry.
+     */
     protected final Map<ResourceLocation, ResourceLocation> aliases;
 
+    /**
+     * The default value of the registry.
+     */
     @Nullable
     private V defaultValue;
+    /**
+     * When {@code true}, the registry cannot be modified.
+     */
     private boolean locked;
 
+    /**
+     * Constructs the new registry for the specified stage.
+     *
+     * @param builder the configuration details of the registry
+     * @param stage the current stage of the registry
+     */
+    @SuppressWarnings("unchecked") // Suppresses warnings for cast to the current entry codec type
     public DynamicRegistry(DynamicRegistryBuilder<V, C> builder, DynamicRegistryManager stage) {
         this.name = builder.getName();
         this.builder = builder;
+        this.stage = stage;
         this.superType = builder.getSuperType();
         this.codecRegistry = builder.getCodecRegistry();
         this.defaultKey = builder.getDefaultKey();
@@ -79,41 +123,11 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
                         RecordCodecBuilder.point(this),
                         Codec.unboundedMap(ResourceLocation.CODEC, this.explodedEntryCodec).fieldOf("entries").forGetter(reg -> reg.entries),
                         Codec.unboundedMap(ResourceLocation.CODEC, ResourceLocation.CODEC).fieldOf("aliases").forGetter(reg -> reg.aliases)
-                ).apply(instance, (registry, entries, aliases) -> registry.fromSnapshot(entries, aliases))
+                ).apply(instance, DynamicRegistry<V, C>::fromSnapshot)
         );
         this.entries = HashBiMap.create();
         this.aliases = new HashMap<>();
         this.locked = true;
-    }
-
-    public DynamicRegistry<V, C> copy(final DynamicRegistryManager stage) {
-        return new DynamicRegistry<>(builder, stage);
-    }
-
-    public void setAndUnlockFromStage(final DynamicRegistryManager stage) {
-        IDynamicRegistry<V, C> stagedRegistry = stage.getRegistry(this.getName());
-        if (stagedRegistry == null)
-            throw new IllegalArgumentException("The registry " + this.getName() + " does not exist within " + stage.getName());
-        this.unlock();
-        this.clear();
-        stagedRegistry.forEach(this::register);
-    }
-
-    @Override
-    public Codec<ISnapshotDynamicRegistry<V, C>> snapshotCodec() {
-        return this.snapshotCodec.xmap(Function.identity(), DynamicRegistry.class::cast);
-    }
-
-    private DynamicRegistry<V, C> fromSnapshot(final Map<ResourceLocation, V> entries, final Map<ResourceLocation, ResourceLocation> aliases) {
-        this.unlock();
-        this.clear();
-        entries.forEach((id, registryObject) -> {
-            registryObject.setRegistryName(id);
-            this.register(registryObject);
-        });
-        aliases.forEach(this.aliases::put);
-        this.lock();
-        return this;
     }
 
     @Override
@@ -188,10 +202,16 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
         return this.locked;
     }
 
+    /**
+     * Unlocks the registry for modification.
+     */
     public void unlock() {
         this.locked = false;
     }
 
+    /**
+     * Locks the registry so no modification can occur.
+     */
     public void lock() {
         this.locked = true;
     }
@@ -245,6 +265,40 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
     }
 
     @Override
+    public DynamicRegistry<V, C> copy(final DynamicRegistryManager stage) {
+        return new DynamicRegistry<>(builder, stage);
+    }
+
+    @Override
+    public void setAndUnlockFromStage(final DynamicRegistryManager stage) {
+        IDynamicRegistry<V, C> stagedRegistry = stage.getRegistry(this.getName());
+        if (stagedRegistry == null)
+            throw new IllegalArgumentException("The registry " + this.getName() + " does not exist within " + stage.getName());
+        this.unlock();
+        this.clear();
+        stagedRegistry.forEach(this::register);
+    }
+
+    /**
+     * Writes the data from a snapshot to this current registry.
+     *
+     * @param entries the entries of the snapshot
+     * @param aliases the entry aliases of the snapshot
+     * @return the current registry instance with the data overwritten
+     */
+    private DynamicRegistry<V, C> fromSnapshot(final Map<ResourceLocation, V> entries, final Map<ResourceLocation, ResourceLocation> aliases) {
+        this.unlock();
+        this.clear();
+        entries.forEach((id, registryObject) -> {
+            registryObject.setRegistryName(id);
+            this.register(registryObject);
+        });
+        aliases.forEach(this.aliases::put);
+        this.lock();
+        return this;
+    }
+
+    @Override
     public Codec<V> entryCodec() {
         return this.explodedEntryCodec;
     }
@@ -259,6 +313,17 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
         return this.registryEntryCodec.encode(input, ops, prefix);
     }
 
+    @Override
+    public Codec<ISnapshotDynamicRegistry<V, C>> snapshotCodec() {
+        return this.snapshotCodec.xmap(Function.identity(), DynamicRegistry.class::cast);
+    }
+
+    /**
+     * Constructs a generic locked error exception.
+     *
+     * @param action the action being performed that caused the exception
+     * @return an {@link IllegalStateException} to be thrown
+     */
     private IllegalStateException constructLockedError(String action) {
         return new IllegalStateException("Attempted to " + action + " from " + this.getName() + " while locked");
     }

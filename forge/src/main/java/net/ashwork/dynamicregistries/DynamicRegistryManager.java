@@ -60,6 +60,7 @@ public class DynamicRegistryManager {
         return this.stage;
     }
 
+    @SuppressWarnings("unchecked")
     public <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> DynamicRegistry<V, C> getRegistry(final ResourceLocation name) {
         return (DynamicRegistry<V, C>) this.registries.get(name);
     }
@@ -68,7 +69,7 @@ public class DynamicRegistryManager {
         return this.getRegistry(this.superTypes.get(entryClass));
     }
 
-    public <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> ResourceLocation getRegistryName(final IDynamicRegistry<V, C> registry) {
+    public <V extends IDynamicEntry<V>, C extends ICodecEntry<V, C>> ResourceLocation getRegistryName(final DynamicRegistry<V, C> registry) {
         return this.registries.inverse().get(registry);
     }
 
@@ -82,9 +83,11 @@ public class DynamicRegistryManager {
         currentStage.registries.keySet().forEach(name -> {
             DynamicRegistries.LOGGER.debug(IRegistrableDynamicRegistry.REGISTER, "Register data to {}", name);
             DynamicRegistry<?, ?> registry = this.promoteFromStage(name, currentStage);
-            registry.setAndUnlockFromStage(currentStage);
-            registry.registerAll(registryEntries.getOrDefault(registry.getName(), Collections.emptyMap()), ops);
-            registry.lock();
+            if (registry != null) {
+                registry.setAndUnlockFromStage(currentStage);
+                registry.registerAll(registryEntries.getOrDefault(registry.getName(), Collections.emptyMap()), ops);
+                registry.lock();
+            } else DynamicRegistries.LOGGER.error(IRegistrableDynamicRegistry.REGISTER, "Registry promotion for {} has returned null, skipping", name);
         });
     }
 

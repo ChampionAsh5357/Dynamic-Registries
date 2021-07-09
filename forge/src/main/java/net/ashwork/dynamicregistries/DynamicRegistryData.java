@@ -9,14 +9,24 @@
 
 package net.ashwork.dynamicregistries;
 
+import net.ashwork.dynamicregistries.registry.ISnapshotDynamicRegistry;
 import net.minecraft.nbt.CompoundNBT;
+import net.minecraft.nbt.INBT;
 import net.minecraft.nbt.NBTDynamicOps;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.storage.WorldSavedData;
 
-//TODO: Document and implement
+import javax.annotation.Nullable;
+
+/**
+ * A storage container to store persistent registry data. Since this will
+ * persist across all dimensions, the data is stored on the Overworld.
+ */
 public class DynamicRegistryData extends WorldSavedData {
 
+    /**
+     * Constructs the instance of this storage container.
+     */
     public DynamicRegistryData() {
         super(DynamicRegistries.ID);
     }
@@ -29,8 +39,11 @@ public class DynamicRegistryData extends WorldSavedData {
 
     @Override
     public CompoundNBT save(CompoundNBT tag) {
-        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.SAVE).forEach(entry ->
-                tag.put(entry.getKey().toString(), entry.getValue().toSnapshot(NBTDynamicOps.INSTANCE)));
+        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.SAVE).forEach(entry -> {
+            @Nullable INBT encodedRegistry = entry.getValue().toSnapshot(NBTDynamicOps.INSTANCE);
+            if (encodedRegistry != null) tag.put(entry.getKey().toString(), encodedRegistry);
+            else DynamicRegistries.LOGGER.error(ISnapshotDynamicRegistry.SNAPSHOT, "Registry {} has thrown an error while encoding, skip saving", entry.getKey());
+        });
         return tag;
     }
 }
