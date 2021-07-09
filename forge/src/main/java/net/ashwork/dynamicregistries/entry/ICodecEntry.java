@@ -22,4 +22,7 @@ import net.minecraftforge.registries.IForgeRegistryEntry;
  * @param <V> the super type of the dynamic registry entry
  * @param <C> the super type of the codec registry entry
  */
-public interface ICodecEntry<V extends IDynamicEntry<?>, C> extends IForgeRegistryEntry<C>, Codec<V> {}
+public interface ICodecEntry<V extends IDynamicEntry<?>, C> extends IForgeRegistryEntry<C> {
+
+    Codec<? extends V> entryCodec();
+}

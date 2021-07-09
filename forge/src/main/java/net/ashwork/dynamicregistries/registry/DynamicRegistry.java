@@ -117,7 +117,7 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
             @Nullable C val = this.codecRegistry.getValue(id);
             return val != null ? DataResult.success(val)
                     : DataResult.error("Not a valid registry object within " + this.codecRegistry.getRegistryName() + ": " + id);
-        }, ICodecEntry::getRegistryName).dispatch(dyn -> (C) dyn.codec(), Function.identity());
+        }, ICodecEntry::getRegistryName).dispatch(dyn -> (C) dyn.codec(), ICodecEntry::entryCodec);
         this.snapshotCodec = RecordCodecBuilder.create(instance ->
                 instance.group(
                         RecordCodecBuilder.point(this),
@@ -234,6 +234,7 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
         DynamicRegistries.LOGGER.debug(MODIFY, "Registry {} is being cleared", this.getName());
         this.aliases.clear();
         this.entries.clear();
+        this.defaultValue = null;
     }
 
     @Override
