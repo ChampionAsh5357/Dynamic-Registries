@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.ashwork.dynamicregistries.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "NetworkFilterAccess"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "refmap": "dynamicregistries.refmap.json"
+}

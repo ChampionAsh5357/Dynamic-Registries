@@ -271,7 +271,6 @@ public class DynamicRegistryManager {
     /**
      * Sends the syncable registries to the client via {@link DynamicRegistryPacket}.
      */
-    //TODO: Reimplement in a packet splitting way
     public void sendToClient() {
         DynamicRegistries.instance().getChannel().send(PacketDistributor.ALL.noArg(),
                 new DynamicRegistryPacket(this.getName(), this.registries(Lookup.SYNC)

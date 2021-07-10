@@ -76,7 +76,6 @@ public class DynamicRegistryPacket {
      *
      * @param buffer the buffer to encode the data to
      */
-    //TODO: Check how to do partial packets, send login packet for initial syncing
     public void encode(final PacketBuffer buffer) {
         buffer.writeUtf(this.stage);
         buffer.writeInt(this.snapshots.size());

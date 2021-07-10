@@ -7,6 +7,10 @@ pluginManagement {
             name 'Forge'
             url 'https://maven.minecraftforge.net'
         }
+        maven {
+            name 'SpongePowered'
+            url 'https://repo.spongepowered.org/repository/maven-public/'
+        }
         gradlePluginPortal()
     }
 
@@ -14,6 +18,8 @@ pluginManagement {
     resolutionStrategy.eachPlugin {
         if (requested.id.id == 'net.minecraftforge.gradle')
             useModule group: requested.id, name: 'ForgeGradle', version: requested.version
+        else if (requested.id.id == 'org.spongepowered.mixin')
+            useModule group: 'org.spongepowered', name: 'mixingradle', version: requested.version
     }
 }
 

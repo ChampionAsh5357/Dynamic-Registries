@@ -9,11 +9,15 @@
 
 package net.ashwork.dynamicregistries;
 
+import com.google.common.collect.ImmutableMap;
 import net.ashwork.dynamicregistries.client.DynamicRegistriesClient;
 import net.ashwork.dynamicregistries.event.DynamicRegistryEvent;
+import net.ashwork.dynamicregistries.mixin.NetworkFilterAccess;
+import net.ashwork.dynamicregistries.network.DynamicRegistryNetworkFilter;
 import net.ashwork.dynamicregistries.network.DynamicRegistryPacket;
 import net.ashwork.dynamicregistries.registry.DynamicRegistry;
 import net.ashwork.dynamicregistries.registry.IRegistrableDynamicRegistry;
+import net.minecraft.network.NetworkManager;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
@@ -33,6 +37,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.network.NetworkDirection;
 import net.minecraftforge.fml.network.NetworkRegistry;
 import net.minecraftforge.fml.network.simple.SimpleChannel;
+import net.minecraftforge.network.VanillaPacketFilter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.MarkerManager;
@@ -40,6 +45,8 @@ import org.apache.logging.log4j.MarkerManager;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The base mod class for dynamic registries.
@@ -55,8 +62,33 @@ public final class DynamicRegistries {
      * The logger used for logging data within the mod.
      */
     public static final Logger LOGGER = LogManager.getLogger("Dynamic Registries");
+    /**
+     * The network identifier of the mod.
+     */
+    public static final ResourceLocation NETWORK_ID = new ResourceLocation(ID, "network");
     //TODO: Create protocol versioning for registry data
-    private static final String NETWORK_PROTOCOL_VERSION = "";
+    /**
+     * The network protocol version of the mod.
+     *
+     * @implSpec
+     * Network protocol is broken down into three portions:
+     * <li>
+     *     <ul>Production (p): The currently built version of the mod.</ul>
+     *     <ul>Snapshot (s): An unstable version of the mod.</ul>
+     *     <ul>Changes (c): Changes within one of the above version.</ul>
+     * </li>
+     * The versioning protocol will look like {@code (?:p|s)([0-9]*[1-9])c([0-9]+)}.
+     * If a version is in production, changes are considered to be compatible and will only check
+     * the beginning portion of the string. If a version is in snapshot, the exact protocol string
+     * will be checked.
+     */
+    private static final String NETWORK_PROTOCOL_VERSION = "s1c3";
+    /**
+     * The protocol version regex to compare against.
+     *
+     * @see #NETWORK_PROTOCOL_VERSION
+     */
+    private static final Pattern PROTOCOL_VERSIONS = Pattern.compile("([ps])([0-9]*[1-9])c([0-9]+)");
     /**
      * Holds the current instance of the loaded mod.
      */
@@ -96,6 +128,8 @@ public final class DynamicRegistries {
         forgeBus.addListener(this::attachDataStorage);
         forgeBus.addListener(this::addReloadListener);
         forgeBus.addListener(this::serverTick);
+
+        this.injectNetworkFilter();
     }
 
     /**
@@ -125,13 +159,30 @@ public final class DynamicRegistries {
     }
 
     /**
+     * Injects the dynamic registry packet splitter into the available splitters.
+     */
+    private void injectNetworkFilter() {
+        ImmutableMap.Builder<String, Function<NetworkManager, VanillaPacketFilter>> filters = ImmutableMap.builder();
+        filters.putAll(NetworkFilterAccess.getFilterInstances());
+        filters.put(ID + ":dynamic_registry_splitter", DynamicRegistryNetworkFilter::new);
+        NetworkFilterAccess.setFilterInstances(filters.build());
+    }
+
+    /**
      * Sets up the network packets and the static registry instances.
      *
      * @param event the event instance
      */
     private void setupRegistries(final FMLCommonSetupEvent event) {
-        final Predicate<String> networkVersionCheck = NetworkRegistry.acceptMissingOr(NETWORK_PROTOCOL_VERSION);
-        this.channel = NetworkRegistry.newSimpleChannel(new ResourceLocation(ID, "network"), () -> NETWORK_PROTOCOL_VERSION, networkVersionCheck, networkVersionCheck);
+        final Predicate<String> networkVersionCheck = version -> {
+            final Matcher versionMatcher = PROTOCOL_VERSIONS.matcher(version),
+                    protocolMatcher = PROTOCOL_VERSIONS.matcher(NETWORK_PROTOCOL_VERSION);
+            if (!(versionMatcher.matches() && protocolMatcher.matches())) return false;
+            return protocolMatcher.group(1).equals(versionMatcher.group(1))
+                    && Integer.valueOf(protocolMatcher.group(2)).equals(Integer.valueOf(versionMatcher.group(2)))
+                    && version.contains("p") || Integer.valueOf(protocolMatcher.group(3)).equals(Integer.valueOf(versionMatcher.group(3)));
+        };
+        this.channel = NetworkRegistry.newSimpleChannel(NETWORK_ID, () -> NETWORK_PROTOCOL_VERSION, networkVersionCheck, networkVersionCheck);
         this.channel.messageBuilder(DynamicRegistryPacket.class, 0, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(DynamicRegistryPacket::encode)
                 .decoder(DynamicRegistryPacket::new)
