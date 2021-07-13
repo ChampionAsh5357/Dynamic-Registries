@@ -33,6 +33,7 @@ import net.minecraftforge.fml.ModLoader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
+import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.network.NetworkDirection;
 import net.minecraftforge.fml.network.NetworkRegistry;
@@ -66,7 +67,6 @@ public final class DynamicRegistries {
      * The network identifier of the mod.
      */
     public static final ResourceLocation NETWORK_ID = new ResourceLocation(ID, "network");
-    //TODO: Create protocol versioning for registry data
     /**
      * The network protocol version of the mod.
      *
@@ -128,6 +128,7 @@ public final class DynamicRegistries {
         forgeBus.addListener(this::attachDataStorage);
         forgeBus.addListener(this::addReloadListener);
         forgeBus.addListener(this::serverTick);
+        forgeBus.addListener(this::serverStopped);
 
         this.injectNetworkFilter();
     }
@@ -189,16 +190,15 @@ public final class DynamicRegistries {
                 .consumer(DynamicRegistryPacket::handle)
                 .add();
 
-        event.enqueueWork(() -> {
-            LOGGER.debug(MarkerManager.getMarker("New Registry"), "Creating new registries");
-            ModLoader.get().postEvent(new DynamicRegistryEvent.NewRegistry());
-            DynamicRegistryManager.STATIC.registries(DynamicRegistryManager.Lookup.ALL).forEach(entry -> {
-                LOGGER.debug(IRegistrableDynamicRegistry.REGISTER, "Registering entries to {}", entry.getKey());
-                final DynamicRegistry<?, ?> registry = entry.getValue();
-                registry.unlock();
-                ModLoader.get().postEvent(new DynamicRegistryEvent.Register<>(registry));
-                registry.lock();
-            });
+
+        LOGGER.debug(MarkerManager.getMarker("New Registry"), "Creating new registries");
+        ModLoader.get().postEvent(new DynamicRegistryEvent.NewRegistry());
+        DynamicRegistryManager.STATIC.registries(DynamicRegistryManager.Lookup.ALL).forEach(entry -> {
+            LOGGER.debug(IRegistrableDynamicRegistry.REGISTER, "Registering entries to {}", entry.getKey());
+            final DynamicRegistry<?, ?> registry = entry.getValue();
+            registry.unlock();
+            ModLoader.get().postEvent(new DynamicRegistryEvent.Register<>(registry));
+            registry.lock();
         });
     }
 
@@ -208,7 +208,18 @@ public final class DynamicRegistries {
      * @param event the event instance
      */
     private void attachDataStorage(final FMLServerStartingEvent event) {
+        LOGGER.debug(MarkerManager.getMarker("Data"), "Initializing world saved data for dynamic registries.");
         this.dataGetter.apply(event.getServer());
+    }
+
+    /**
+     * When the server has stopped, all data from the registries are cleared to
+     * prevent any cross world registry data.
+     *
+     * @param event the event instance
+     */
+    private void serverStopped(final FMLServerStoppedEvent event) {
+        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.ALL).forEach(entry -> entry.getValue().clear());
     }
 
     /**

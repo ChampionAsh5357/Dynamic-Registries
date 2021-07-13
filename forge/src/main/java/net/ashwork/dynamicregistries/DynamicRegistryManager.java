@@ -76,7 +76,7 @@ public class DynamicRegistryManager {
     /**
      * The prior names of the registries.
      */
-    private final Map<ResourceLocation, ResourceLocation> legacyNames; //TODO: Implement legacy names
+    private final Map<ResourceLocation, ResourceLocation> legacyNames;
 
     /**
      * Constructs a staged manager.
@@ -142,6 +142,21 @@ public class DynamicRegistryManager {
     }
 
     /**
+     * Updates the legacy name of the registry to the current name.
+     *
+     * @param legacyName the old name of the registry
+     * @return the new name of the registry or {@code legacyName} if none exists
+     */
+    public ResourceLocation updateLegacyName(ResourceLocation legacyName) {
+        final ResourceLocation originalName = legacyName;
+        while(this.getRegistry(legacyName) == null) {
+            legacyName = this.legacyNames.get(legacyName);
+            if (legacyName == null) return originalName;
+        }
+        return legacyName;
+    }
+
+    /**
      * Reloads all dynamic registries with the static data from the {@code currentStage}
      * and then registers the encoded data.
      *
@@ -152,17 +167,20 @@ public class DynamicRegistryManager {
      */
     public <T> void reload(final Map<ResourceLocation, T> entries, final DynamicOps<T> ops, final DynamicRegistryManager currentStage) {
         final Map<ResourceLocation, Map<ResourceLocation, T>> registryEntries = new HashMap<>();
+        final Map<ResourceLocation, Set<T>> missingEntryStrategies = new HashMap<>();
         entries.forEach((id, encodedEntry) -> {
             String[] paths = id.getPath().split("/", 3);
-            registryEntries.computeIfAbsent(new ResourceLocation(paths[0], paths[1]), u -> new HashMap<>()).put(new ResourceLocation(id.getNamespace(), paths[2]), encodedEntry);
+            if (paths[0].equals("missing_mappings")) missingEntryStrategies.computeIfAbsent(this.updateLegacyName(new ResourceLocation(paths[1], paths[2])), u -> new HashSet<>()).add(encodedEntry);
+            else registryEntries.computeIfAbsent(this.updateLegacyName(new ResourceLocation(paths[0], paths[1])), u -> new HashMap<>()).put(new ResourceLocation(id.getNamespace(), paths[2]), encodedEntry);
         });
         DynamicRegistries.LOGGER.debug(RELOAD, "Found data for {} registries", registryEntries.size());
         currentStage.registries.keySet().forEach(name -> {
             DynamicRegistries.LOGGER.debug(IRegistrableDynamicRegistry.REGISTER, "Register data to {}", name);
             DynamicRegistry<?, ?> registry = this.promoteFromStage(name, currentStage);
             if (registry != null) {
-                registry.setAndUnlockFromStage(currentStage);
+                Set<ResourceLocation> oldEntries = registry.setAndUnlockFromStage(currentStage);
                 registry.registerAll(registryEntries.getOrDefault(registry.getName(), Collections.emptyMap()), ops);
+                registry.postReloadedEntries(oldEntries, missingEntryStrategies.get(name), ops);
                 registry.lock();
             } else DynamicRegistries.LOGGER.error(IRegistrableDynamicRegistry.REGISTER, "Registry promotion for {} has returned null, skipping", name);
         });
@@ -253,7 +271,7 @@ public class DynamicRegistryManager {
      * @param lookup the registry filter
      * @return a stream of entries of name to dynamic registry
      */
-    protected Stream<Map.Entry<ResourceLocation, DynamicRegistry<?, ?>>> registries(final Lookup lookup) {
+    public Stream<Map.Entry<ResourceLocation, DynamicRegistry<?, ?>>> registries(final Lookup lookup) {
         return this.registries.entrySet().stream().filter(entry -> {
             switch (lookup) {
                 case ALL:

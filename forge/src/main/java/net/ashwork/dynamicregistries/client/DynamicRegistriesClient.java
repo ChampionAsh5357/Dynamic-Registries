@@ -13,6 +13,7 @@ import net.ashwork.dynamicregistries.DynamicRegistryManager;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.nbt.NBTDynamicOps;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 
 import java.util.Map;
@@ -35,6 +36,8 @@ public final class DynamicRegistriesClient {
      */
     public DynamicRegistriesClient(final IEventBus modBus, final IEventBus forgeBus) {
         instance = this;
+
+        forgeBus.addListener(this::playerLeave);
     }
 
     /**
@@ -65,6 +68,16 @@ public final class DynamicRegistriesClient {
             default:
                 throw new IllegalArgumentException("Invalid registry manager stage: " + stage);
         }
-        snapshots.forEach((name, snapshot) -> stageManager.getRegistry(name).fromSnapshot(snapshot, NBTDynamicOps.INSTANCE));
+        snapshots.forEach((name, snapshot) -> stageManager.getRegistry(name).fromSnapshot(snapshot, NBTDynamicOps.INSTANCE, false));
+    }
+
+    /**
+     * Whenever the client player leaves the world, we want to invalidate all data within the current
+     * registries to prevent any cross world contamination.
+     *
+     * @param event the event instance
+     */
+    private void playerLeave(final ClientPlayerNetworkEvent.LoggedOutEvent event) {
+        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.ALL).forEach(entry -> entry.getValue().clear());
     }
 }

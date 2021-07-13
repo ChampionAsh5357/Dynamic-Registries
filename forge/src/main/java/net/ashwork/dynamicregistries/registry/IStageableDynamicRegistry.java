@@ -12,6 +12,9 @@ package net.ashwork.dynamicregistries.registry;
 import net.ashwork.dynamicregistries.DynamicRegistryManager;
 import net.ashwork.dynamicregistries.entry.ICodecEntry;
 import net.ashwork.dynamicregistries.entry.IDynamicEntry;
+import net.minecraft.util.ResourceLocation;
+
+import java.util.Set;
 
 /**
  * A stageable instance of an {@link IDynamicRegistry}.
@@ -34,6 +37,7 @@ public interface IStageableDynamicRegistry<V extends IDynamicEntry<V>, C extends
      * for later processing.
      *
      * @param stage the registry stage to copy data from
+     * @return a set of old registry names
      */
-    void setAndUnlockFromStage(final DynamicRegistryManager stage);
+    Set<ResourceLocation> setAndUnlockFromStage(final DynamicRegistryManager stage);
 }

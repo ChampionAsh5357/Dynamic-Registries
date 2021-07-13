@@ -12,6 +12,7 @@ package net.ashwork.dynamicregistries.registry;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DynamicOps;
 import net.ashwork.dynamicregistries.DynamicRegistries;
+import net.ashwork.dynamicregistries.DynamicRegistryData;
 import net.ashwork.dynamicregistries.entry.ICodecEntry;
 import net.ashwork.dynamicregistries.entry.IDynamicEntry;
 import org.apache.logging.log4j.Marker;
@@ -35,9 +36,10 @@ public interface ISnapshotDynamicRegistry<V extends IDynamicEntry<V>, C extends 
     /**
      * Returns the codec used to encode/decode the registry from its snapshot.
      *
+     * @param isSavedData if the data was populated from {@link DynamicRegistryData}
      * @return  the codec used to encode/decode the registry from its snapshot
      */
-    Codec<ISnapshotDynamicRegistry<V, C>> snapshotCodec();
+    Codec<ISnapshotDynamicRegistry<V, C>> snapshotCodec(final boolean isSavedData);
 
     /**
      * Encodes a registry snapshot.
@@ -47,8 +49,8 @@ public interface ISnapshotDynamicRegistry<V extends IDynamicEntry<V>, C extends 
      * @return the encoded form of the registry snapshot
      */
     @Nullable
-    default <T> T toSnapshot(DynamicOps<T> ops) {
-        return this.snapshotCodec().encodeStart(ops, this).resultOrPartial(error ->
+    default <T> T toSnapshot(final DynamicOps<T> ops) {
+        return this.snapshotCodec(false).encodeStart(ops, this).resultOrPartial(error ->
                 DynamicRegistries.LOGGER.error(SNAPSHOT, "Could not encode a snapshot of {}: {}", this.getName(), error)
         ).orElse(null);
     }
@@ -56,12 +58,18 @@ public interface ISnapshotDynamicRegistry<V extends IDynamicEntry<V>, C extends 
     /**
      * Decodes and implements the registry snapshot.
      *
+     * @implNote
+     * {@code isSaveData} is used since registry data can be appended or cleared later.
+     * Saved data is loaded later than the reload, so we need to make sure not to override
+     * the entries.
+     *
      * @param input the encoded form of the registry snapshot
      * @param ops the operator used to transmute the encoded object
+     * @param isSaveData if the data was populated from {@link DynamicRegistryData}
      * @param <T> the type of the encoded object
      */
-    default <T> void fromSnapshot(final T input, DynamicOps<T> ops) {
-        this.snapshotCodec().parse(ops, input).error().ifPresent(error ->
+    default <T> void fromSnapshot(final T input, final DynamicOps<T> ops, final boolean isSaveData) {
+        this.snapshotCodec(isSaveData).parse(ops, input).error().ifPresent(error ->
                 DynamicRegistries.LOGGER.error(SNAPSHOT, "Could not decode a snapshot of {}: {}", this.getName(), error)
         );
     }

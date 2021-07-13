@@ -53,6 +53,10 @@ public class DynamicRegistryBuilder<V extends IDynamicEntry<V>, C extends ICodec
      * The prior names of the dynamic registry.
      */
     private final Set<ResourceLocation> legacyNames;
+    /**
+     * The reload strategy of the dynamic registry.
+     */
+    private DynamicRegistry.ReloadStrategy reloadStrategy = DynamicRegistry.ReloadStrategy.CLEAR;
 
     /**
      * Constructs an instance of the builder.
@@ -64,6 +68,8 @@ public class DynamicRegistryBuilder<V extends IDynamicEntry<V>, C extends ICodec
     public DynamicRegistryBuilder(final ResourceLocation name, final Class<V> superType, final IForgeRegistry<C> codecRegistry) {
         if(!IDynamicRegistry.VALID_NAMES.matcher(Objects.requireNonNull(name, "The name of the registry cannot be null").getPath()).matches())
             throw new IllegalArgumentException(name + " is not valid: ^[a-z][a-z0-9_-]{1,63}$");
+        if(name.getNamespace().equals("missing_mappings"))
+            throw new IllegalArgumentException("'missing_mappings' is a reserved namespace within dynamic registries");
         this.name = name;
         this.superType = Objects.requireNonNull(superType, "The super type of the dynamic registry entry cannot be null");
         this.codecRegistry = Objects.requireNonNull(codecRegistry, "The codec registry cannot be null");
@@ -111,6 +117,17 @@ public class DynamicRegistryBuilder<V extends IDynamicEntry<V>, C extends ICodec
      */
     public DynamicRegistryBuilder<V, C> legacyName(final ResourceLocation name) {
         this.legacyNames.add(Objects.requireNonNull(name, "A legacy name should not be null"));
+        return this;
+    }
+
+    /**
+     * Instead of clearing the registry each time the entries are reloaded, it will
+     * instead append or replace the already existing entries.
+     *
+     * @return the builder instance
+     */
+    public DynamicRegistryBuilder<V, C> appendAndReplaceEntries() {
+        this.reloadStrategy = DynamicRegistry.ReloadStrategy.REPLACE;
         return this;
     }
 
@@ -177,6 +194,15 @@ public class DynamicRegistryBuilder<V extends IDynamicEntry<V>, C extends ICodec
      */
     public Set<ResourceLocation> getLegacyNames() {
         return this.legacyNames;
+    }
+
+    /**
+     * Returns the reload strategy of the registry.
+     *
+     * @return the reload strategy of the registry
+     */
+    public DynamicRegistry.ReloadStrategy getReloadStrategy() {
+        return this.reloadStrategy;
     }
 
     /**

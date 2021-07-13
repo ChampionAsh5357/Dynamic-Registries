@@ -34,7 +34,9 @@ public class DynamicRegistryData extends WorldSavedData {
     @Override
     public void load(CompoundNBT tag) {
         tag.getAllKeys().forEach(name ->
-                DynamicRegistryManager.DYNAMIC.getRegistry(new ResourceLocation(name)).fromSnapshot(tag.get(name), NBTDynamicOps.INSTANCE));
+                DynamicRegistryManager.DYNAMIC.getRegistry(DynamicRegistryManager.DYNAMIC.updateLegacyName(new ResourceLocation(name)))
+                        .fromSnapshot(tag.get(name), NBTDynamicOps.INSTANCE, true)
+        );
     }
 
     @Override
