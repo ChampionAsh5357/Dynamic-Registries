@@ -15,7 +15,7 @@ import net.ashwork.dynamicregistries.registry.DynamicRegistryBuilder;
 import net.ashwork.dynamicregistries.registry.IRegistrableDynamicRegistry;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.GenericEvent;
-import net.minecraftforge.fml.event.lifecycle.IModBusEvent;
+import net.minecraftforge.fml.event.IModBusEvent;
 
 import java.lang.reflect.Type;
 

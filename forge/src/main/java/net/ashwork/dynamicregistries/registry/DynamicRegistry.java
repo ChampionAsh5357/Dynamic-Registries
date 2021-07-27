@@ -22,8 +22,8 @@ import net.ashwork.dynamicregistries.DynamicRegistryListener;
 import net.ashwork.dynamicregistries.DynamicRegistryManager;
 import net.ashwork.dynamicregistries.entry.ICodecEntry;
 import net.ashwork.dynamicregistries.entry.IDynamicEntry;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.IForgeRegistry;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
@@ -516,7 +516,10 @@ public class DynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEntry<V
         /**
          * The default entry strategy if none is available.
          */
-        private static final MissingEntryStrategy DEFAULT = MISSING_STRATEGIES.get("dummy").parse(null, null).result().get();
+        private static final MissingEntryStrategy DEFAULT = (missingName, registry) -> {
+            DynamicRegistries.LOGGER.debug(MISSING_ENTRY, "Added {} as a dummy entry within {}", missingName, registry.getName());
+            registry.dummies.add(missingName);
+        };
 
         /**
          * Strategies for entries in the registry.

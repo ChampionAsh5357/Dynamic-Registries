@@ -13,13 +13,13 @@ import com.google.common.collect.ImmutableMap;
 import net.ashwork.dynamicregistries.DynamicRegistries;
 import net.ashwork.dynamicregistries.client.DynamicRegistriesClient;
 import net.ashwork.dynamicregistries.registry.ISnapshotDynamicRegistry;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.Util;
+import net.minecraft.Util;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.network.NetworkEvent;
+import net.minecraftforge.fmllegacy.network.NetworkEvent;
 
 import javax.annotation.Nullable;
 import java.util.Map;
@@ -39,7 +39,7 @@ public class DynamicRegistryPacket {
     /**
      * A map of registry names to their encoded registries
      */
-    private final Map<ResourceLocation, CompoundNBT> snapshots;
+    private final Map<ResourceLocation, CompoundTag> snapshots;
 
     /**
      * Constructs the packet on the server.
@@ -47,7 +47,7 @@ public class DynamicRegistryPacket {
      * @param stage the registry stage
      * @param snapshots a map of registry names to their encoded registries
      */
-    public DynamicRegistryPacket(final String stage, final Map<ResourceLocation, CompoundNBT> snapshots) {
+    public DynamicRegistryPacket(final String stage, final Map<ResourceLocation, CompoundTag> snapshots) {
         this.stage = stage;
         this.snapshots = snapshots;
     }
@@ -57,13 +57,13 @@ public class DynamicRegistryPacket {
      *
      * @param buffer a buffer containing the sent packet information
      */
-    public DynamicRegistryPacket(final PacketBuffer buffer) {
+    public DynamicRegistryPacket(final FriendlyByteBuf buffer) {
         this(buffer.readUtf(), Util.make(() -> {
             final int size = buffer.readInt();
-            final ImmutableMap.Builder<ResourceLocation, CompoundNBT> snapshots = ImmutableMap.builder();
+            final ImmutableMap.Builder<ResourceLocation, CompoundTag> snapshots = ImmutableMap.builder();
             IntStream.range(0, size).forEach(u -> {
                 final ResourceLocation name = buffer.readResourceLocation();
-                @Nullable CompoundNBT tag = buffer.readAnySizeNbt();
+                @Nullable CompoundTag tag = buffer.readAnySizeNbt();
                 if (tag != null) snapshots.put(name, tag);
                 else DynamicRegistries.LOGGER.error(ISnapshotDynamicRegistry.SNAPSHOT, "Registry snapshot {} returned null, skipping", name);
             });
@@ -76,7 +76,7 @@ public class DynamicRegistryPacket {
      *
      * @param buffer the buffer to encode the data to
      */
-    public void encode(final PacketBuffer buffer) {
+    public void encode(final FriendlyByteBuf buffer) {
         buffer.writeUtf(this.stage);
         buffer.writeInt(this.snapshots.size());
         this.snapshots.forEach((name, snapshot) -> {

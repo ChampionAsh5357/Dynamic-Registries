@@ -2,9 +2,8 @@
 plugins {
     id 'library-conventions'
     id 'license-manager'
-    id 'net.minecraftforge.gradle' version '5.+'
-    id 'com.github.johnrengelman.shadow' version '5.2.0'
-    id 'org.spongepowered.mixin' version '0.7-SNAPSHOT'
+    id 'net.minecraftforge.gradle' version '5.1.+'
+    //id 'org.spongepowered.mixin' version '0.7-SNAPSHOT' TODO: Add back in later
 }
 
 // Set project information
@@ -17,6 +16,7 @@ sourceSets {
     main.resources {
         srcDir 'src/generated/resources'
     }
+    testmod {}
 }
 
 minecraft {
@@ -41,8 +41,12 @@ minecraft {
             // Directory for the project to run in
             workingDirectory file('run/client')
 
-            // Add mixin configuration argument
-            arg '-mixin.config=' + project.projectBaseName + '.mixins.json'
+            // Add user credentials and mixin information
+            args '--accessToken', project.minecraftAccessToken//,
+                //'-mixin.config=' + project.projectBaseName + '.mixins.json'
+
+            // Add IntelliJ module naming
+            ideaModule "${project.projectBaseName}.forge.main"
 
             // Rename task to be unique
             taskName 'runForgeClient'
@@ -52,21 +56,25 @@ minecraft {
 
             // Attach the sources to the run
             mods.create(project.projectBaseName).source(sourceSets.main)
+            mods.create(project.projectBaseName + '_test').source(sourceSets.testmod)
         }
 
         // Server run configuration
         server {
             workingDirectory file('run/server')
-            arg '-mixin.config=' + project.projectBaseName + '.mixins.json'
+            //arg '-mixin.config=' + project.projectBaseName + '.mixins.json'
+            ideaModule "${project.projectBaseName}.forge.main"
             taskName 'runForgeServer'
             property 'forge.logging.console.level', 'debug'
             mods.create(project.projectBaseName).source(sourceSets.main)
+            mods.create(project.projectBaseName + '_test').source(sourceSets.testmod)
         }
 
 
         // Data run configuration
         data {
             workingDirectory file('run/data')
+            ideaModule "${project.projectBaseName}.forge.main"
             taskName 'runForgeData'
             property 'forge.logging.console.level', 'debug'
 
@@ -74,28 +82,24 @@ minecraft {
             args '--mod', project.projectBaseName,
                 '--all',
                 '--output', sourceSets.generated.resources.srcDirs[0],
-                '--existing', sourceSets.main.resources.srcDirs[0],
-                '-mixin.config=' + project.projectBaseName + '.mixins.json'
+                '--existing', sourceSets.main.resources.srcDirs[0]//,
+                //'-mixin.config=' + project.projectBaseName + '.mixins.json'
 
             mods.create(project.projectBaseName).source(sourceSets.main)
+            mods.create(project.projectBaseName + '_test').source(sourceSets.testmod)
         }
     }
 }
 
-// Add shading ability
 configurations {
-    shade
+    testmodImplementation.extendsFrom implementation
 }
 
 // Include MinecraftForge as a dependency
 dependencies {
     minecraft group: 'net.minecraftforge', name: 'forge', version: "$project.forgeMinecraftVersion-$project.forgeApiVersion"
-}
 
-// Add shadow jar information
-shadowJar {
-    archiveClassifier = ''
-    configurations = [project.configurations.shade]
+    testmodImplementation sourceSets.main.output
 }
 
 jar {
@@ -103,20 +107,20 @@ jar {
     finalizedBy 'reobfJar'
 
     // Add mixin to jar manifest
-    manifest.attributes([
+    /*manifest.attributes([
             'MixinConfigs': "${project.projectBaseName}.mixins.json"
-    ])
+    ])*/
 }
 
 // Setup mixin reference map
-mixin {
+/*mixin {
     add sourceSets.main, "${project.projectBaseName}.refmap.json"
-}
+}*/
 
 // Set specific publication data
 publishing {
     publications.create(archivesBaseName, MavenPublication) {
-        artifact shadowJar
+        from components.java
         pom {
             name = "$project.projectName"
             description = "An implementation of dynamic registries based of the MinecraftForge registry system"

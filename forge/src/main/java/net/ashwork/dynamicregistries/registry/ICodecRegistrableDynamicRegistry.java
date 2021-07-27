@@ -14,7 +14,7 @@ import com.mojang.serialization.DynamicOps;
 import net.ashwork.dynamicregistries.DynamicRegistries;
 import net.ashwork.dynamicregistries.entry.ICodecEntry;
 import net.ashwork.dynamicregistries.entry.IDynamicEntry;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.resources.ResourceLocation;
 
 import java.util.Map;
 

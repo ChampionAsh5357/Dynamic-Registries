@@ -9,11 +9,8 @@
 
 package net.ashwork.dynamicregistries.mixin;
 
-import net.minecraft.network.NetworkManager;
-import net.minecraftforge.network.NetworkFilters;
+import net.minecraft.network.Connection;
 import net.minecraftforge.network.VanillaPacketFilter;
-import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.gen.Accessor;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -21,7 +18,8 @@ import java.util.function.Function;
 /**
  * A mixin interface used to append onto the existing packet filters.
  */
-@Mixin(value = NetworkFilters.class, remap = false)
+//TODO: Add mixin back once supported again
+//@Mixin(value = Connection.class, remap = false)
 public interface NetworkFilterAccess {
 
     /**
@@ -29,8 +27,8 @@ public interface NetworkFilterAccess {
      *
      * @param filters the network manager packet filters
      */
-    @Accessor("instances")
-    static void setFilterInstances(final Map<String, Function<NetworkManager, VanillaPacketFilter>> filters) {
+    //@Accessor("instances")
+    static void setFilterInstances(final Map<String, Function<Connection, VanillaPacketFilter>> filters) {
         throw new AssertionError("Mixin not applied for setting filter instances");
     }
 
@@ -39,8 +37,8 @@ public interface NetworkFilterAccess {
      *
      * @return the filter instances
      */
-    @Accessor("instances")
-    static Map<String, Function<NetworkManager, VanillaPacketFilter>> getFilterInstances() {
+    //@Accessor("instances")
+    static Map<String, Function<Connection, VanillaPacketFilter>> getFilterInstances() {
         throw new AssertionError("Mixin not applied for getting filter instances");
     }
 }

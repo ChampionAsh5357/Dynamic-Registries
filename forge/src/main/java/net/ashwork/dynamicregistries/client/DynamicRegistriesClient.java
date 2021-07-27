@@ -10,13 +10,14 @@
 package net.ashwork.dynamicregistries.client;
 
 import net.ashwork.dynamicregistries.DynamicRegistryManager;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.NBTDynamicOps;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * The isolated client instance of the base mod class.
@@ -56,7 +57,7 @@ public final class DynamicRegistriesClient {
      * @param stage the stage to set the data within
      * @param snapshots a map of registry name to registry snapshot data
      */
-    public void handleClientRegistry(final String stage, final Map<ResourceLocation, CompoundNBT> snapshots) {
+    public void handleClientRegistry(final String stage, final Map<ResourceLocation, CompoundTag> snapshots) {
         DynamicRegistryManager stageManager;
         switch (stage) {
             case "Static":
@@ -68,7 +69,8 @@ public final class DynamicRegistriesClient {
             default:
                 throw new IllegalArgumentException("Invalid registry manager stage: " + stage);
         }
-        snapshots.forEach((name, snapshot) -> stageManager.getRegistry(name).fromSnapshot(snapshot, NBTDynamicOps.INSTANCE, false));
+        snapshots.forEach((name, snapshot) -> Objects.requireNonNull(stageManager.getRegistry(name), "This registry is not available on the client: " + name)
+                .fromSnapshot(snapshot, NbtOps.INSTANCE, false));
     }
 
     /**
@@ -78,6 +80,10 @@ public final class DynamicRegistriesClient {
      * @param event the event instance
      */
     private void playerLeave(final ClientPlayerNetworkEvent.LoggedOutEvent event) {
-        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.ALL).forEach(entry -> entry.getValue().clear());
+        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.ALL).map(Map.Entry::getValue).forEach(registry -> {
+            registry.unlock();
+            registry.clear();
+            registry.lock();
+        });
     }
 }

@@ -17,10 +17,10 @@ import net.ashwork.dynamicregistries.network.DynamicRegistryNetworkFilter;
 import net.ashwork.dynamicregistries.network.DynamicRegistryPacket;
 import net.ashwork.dynamicregistries.registry.DynamicRegistry;
 import net.ashwork.dynamicregistries.registry.IRegistrableDynamicRegistry;
-import net.minecraft.network.NetworkManager;
+import net.minecraft.network.Connection;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.world.World;
+import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.AddReloadListenerEvent;
@@ -28,21 +28,22 @@ import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.LogicalSide;
-import net.minecraftforge.fml.LogicalSidedProvider;
 import net.minecraftforge.fml.ModLoader;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
-import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.network.NetworkDirection;
-import net.minecraftforge.fml.network.NetworkRegistry;
-import net.minecraftforge.fml.network.simple.SimpleChannel;
+import net.minecraftforge.fmllegacy.LogicalSidedProvider;
+import net.minecraftforge.fmllegacy.network.NetworkDirection;
+import net.minecraftforge.fmllegacy.network.NetworkRegistry;
+import net.minecraftforge.fmllegacy.network.simple.SimpleChannel;
+import net.minecraftforge.fmlserverevents.FMLServerStartingEvent;
+import net.minecraftforge.fmlserverevents.FMLServerStoppedEvent;
 import net.minecraftforge.network.VanillaPacketFilter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.MarkerManager;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -118,7 +119,7 @@ public final class DynamicRegistries {
     public DynamicRegistries() {
         instance = this;
         this.registryListener = new DynamicRegistryListener();
-        this.dataGetter = server -> Objects.requireNonNull(server.getLevel(World.OVERWORLD), "The Overworld is currently null, make sure you are not calling this ").getDataStorage().computeIfAbsent(DynamicRegistryData::new, ID);
+        this.dataGetter = server -> Objects.requireNonNull(server.getLevel(Level.OVERWORLD), "The Overworld is currently null, make sure you are not calling this ").getDataStorage().computeIfAbsent(DynamicRegistryData::fromTag, DynamicRegistryData::new, ID);
 
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus(),
                 forgeBus = MinecraftForge.EVENT_BUS;
@@ -130,7 +131,7 @@ public final class DynamicRegistries {
         forgeBus.addListener(this::serverTick);
         forgeBus.addListener(this::serverStopped);
 
-        this.injectNetworkFilter();
+        //this.injectNetworkFilter(); TODO: Reimplement once mixins are back
     }
 
     /**
@@ -163,7 +164,7 @@ public final class DynamicRegistries {
      * Injects the dynamic registry packet splitter into the available splitters.
      */
     private void injectNetworkFilter() {
-        ImmutableMap.Builder<String, Function<NetworkManager, VanillaPacketFilter>> filters = ImmutableMap.builder();
+        ImmutableMap.Builder<String, Function<Connection, VanillaPacketFilter>> filters = ImmutableMap.builder();
         filters.putAll(NetworkFilterAccess.getFilterInstances());
         filters.put(ID + ":dynamic_registry_splitter", DynamicRegistryNetworkFilter::new);
         NetworkFilterAccess.setFilterInstances(filters.build());
@@ -219,7 +220,11 @@ public final class DynamicRegistries {
      * @param event the event instance
      */
     private void serverStopped(final FMLServerStoppedEvent event) {
-        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.ALL).forEach(entry -> entry.getValue().clear());
+        DynamicRegistryManager.DYNAMIC.registries(DynamicRegistryManager.Lookup.ALL).map(Map.Entry::getValue).forEach(registry -> {
+            registry.unlock();
+            registry.clear();
+            registry.lock();
+        });
     }
 
     /**

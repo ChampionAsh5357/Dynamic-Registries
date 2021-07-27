@@ -13,17 +13,24 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
-import net.minecraft.client.resources.JsonReloadListener;
-import net.minecraft.profiler.IProfiler;
-import net.minecraft.resources.IResourceManager;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.util.profiling.ProfilerFiller;
+import org.apache.logging.log4j.Marker;
+import org.apache.logging.log4j.MarkerManager;
 
 import java.util.Map;
 
 /**
  * A reload listener used for handling registry load within the dynamic registry.
  */
-public class DynamicRegistryListener extends JsonReloadListener {
+public class DynamicRegistryListener extends SimpleJsonResourceReloadListener {
+
+    /**
+     * A marker that represents all logging information while reloading.
+     */
+    private static final Marker RELOAD_LISTENER = MarkerManager.getMarker("Reload Listener");
 
     /**
      * A {@link Gson} instance. Only used for transmuting a string to a {@link JsonElement}.
@@ -38,7 +45,8 @@ public class DynamicRegistryListener extends JsonReloadListener {
     }
 
     @Override
-    protected void apply(final Map<ResourceLocation, JsonElement> entries, final IResourceManager manager, final IProfiler profiler) {
+    protected void apply(final Map<ResourceLocation, JsonElement> entries, final ResourceManager manager, final ProfilerFiller profiler) {
+        DynamicRegistries.LOGGER.debug(RELOAD_LISTENER, "Reloading registries with {}", entries);
         profiler.push("dynamic_registries_reload");
         DynamicRegistryManager.DYNAMIC.reload(entries, JsonOps.INSTANCE, DynamicRegistryManager.STATIC);
         DynamicRegistries.instance().invalidate();

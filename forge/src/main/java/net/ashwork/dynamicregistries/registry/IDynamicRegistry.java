@@ -12,14 +12,12 @@ package net.ashwork.dynamicregistries.registry;
 import com.mojang.serialization.Codec;
 import net.ashwork.dynamicregistries.entry.ICodecEntry;
 import net.ashwork.dynamicregistries.entry.IDynamicEntry;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.registries.IForgeRegistry;
 
 import javax.annotation.Nullable;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -177,6 +175,18 @@ public interface IDynamicRegistry<V extends IDynamicEntry<V>, C extends ICodecEn
      */
     default Stream<V> stream() {
         return StreamSupport.stream(this.spliterator(), false);
+    }
+
+    /**
+     * Performs the given action for each entry in the dynamic registry until all
+     * entries have been processed or the action throws an exception.
+     *
+     * @param action the action to be performed for each entry
+     * @throws NullPointerException if the specified action is null
+     */
+    default void forEach(BiConsumer<? super ResourceLocation, ? super V> action) {
+        Objects.requireNonNull(action, "The action for the registry is null");
+        this.entrySet().forEach(entry -> action.accept(entry.getKey(), entry.getValue()));
     }
 
     @Override

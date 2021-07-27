@@ -12,12 +12,12 @@ package net.ashwork.dynamicregistries.network;
 import com.google.common.collect.ImmutableMap;
 import io.netty.channel.ChannelHandler;
 import net.ashwork.dynamicregistries.DynamicRegistries;
-import net.minecraft.network.IPacket;
-import net.minecraft.network.NetworkManager;
-import net.minecraft.network.PacketDirection;
-import net.minecraft.network.ProtocolType;
-import net.minecraft.network.play.server.SCustomPayloadPlayPacket;
-import net.minecraftforge.fml.network.ICustomPacket;
+import net.minecraft.network.Connection;
+import net.minecraft.network.ConnectionProtocol;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket;
+import net.minecraftforge.fmllegacy.network.ICustomPacket;
 import net.minecraftforge.network.VanillaPacketFilter;
 import net.minecraftforge.network.VanillaPacketSplitter;
 
@@ -35,28 +35,28 @@ public class DynamicRegistryNetworkFilter extends VanillaPacketFilter {
     /**
      * A constructor instance.
      *
-     * @param manager the network manager
+     * @param connection the network manager
      */
-    public DynamicRegistryNetworkFilter(final @Nullable NetworkManager manager) {
-        super(buildHandlers(manager));
+    public DynamicRegistryNetworkFilter(final @Nullable Connection connection) {
+        super(buildHandlers(connection));
     }
 
     /**
      * Builds the handlers that can split available packets for this mod.
      *
-     * @param manager the network manager
+     * @param connection the network manager
      * @return a map of packets to their packet splitter handler
      */
-    private static Map<Class<? extends IPacket<?>>, BiConsumer<IPacket<?>, List<? super IPacket<?>>>> buildHandlers(final @Nullable NetworkManager manager)
+    private static Map<Class<? extends Packet<?>>, BiConsumer<Packet<?>, List<? super Packet<?>>>> buildHandlers(final @Nullable Connection connection)
     {
-        VanillaPacketSplitter.RemoteCompatibility compatibility = manager == null ? VanillaPacketSplitter.RemoteCompatibility.ABSENT : VanillaPacketSplitter.getRemoteCompatibility(manager);
+        VanillaPacketSplitter.RemoteCompatibility compatibility = connection == null ? VanillaPacketSplitter.RemoteCompatibility.ABSENT : VanillaPacketSplitter.getRemoteCompatibility(connection);
         if (compatibility == VanillaPacketSplitter.RemoteCompatibility.ABSENT) return ImmutableMap.of();
-        return ImmutableMap.of(SCustomPayloadPlayPacket.class, DynamicRegistryNetworkFilter::splitPacket);
+        return ImmutableMap.of(ClientboundCustomPayloadPacket.class, DynamicRegistryNetworkFilter::splitPacket);
     }
 
     @Override
-    protected boolean isNecessary(final NetworkManager manager) {
-        return !manager.isMemoryConnection() && VanillaPacketSplitter.isRemoteCompatible(manager);
+    protected boolean isNecessary(final Connection connection) {
+        return !connection.isMemoryConnection() && VanillaPacketSplitter.isRemoteCompatible(connection);
     }
 
     /**
@@ -65,11 +65,11 @@ public class DynamicRegistryNetworkFilter extends VanillaPacketFilter {
      * @param packet the packet being checked for splitting
      * @param out the list of split packets
      */
-    private static void splitPacket(final IPacket<?> packet, final List<? super IPacket<?>> out)
+    private static void splitPacket(final Packet<?> packet, final List<? super Packet<?>> out)
     {
         if (packet instanceof ICustomPacket<?>
                 && ((ICustomPacket<?>) packet).getName().equals(DynamicRegistries.NETWORK_ID))
-            VanillaPacketSplitter.appendPackets(ProtocolType.PLAY, PacketDirection.CLIENTBOUND, packet, out);
+            VanillaPacketSplitter.appendPackets(ConnectionProtocol.PLAY, PacketFlow.CLIENTBOUND, packet, out);
         else out.add(packet);
     }
 }

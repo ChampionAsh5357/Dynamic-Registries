@@ -18,10 +18,10 @@ import net.ashwork.dynamicregistries.entry.ICodecEntry;
 import net.ashwork.dynamicregistries.entry.IDynamicEntry;
 import net.ashwork.dynamicregistries.network.DynamicRegistryPacket;
 import net.ashwork.dynamicregistries.registry.*;
-import net.minecraft.nbt.CompoundNBT;
-import net.minecraft.nbt.NBTDynamicOps;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.network.PacketDistributor;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.fmllegacy.network.PacketDistributor;
 import org.apache.logging.log4j.Marker;
 import org.apache.logging.log4j.MarkerManager;
 
@@ -180,7 +180,7 @@ public class DynamicRegistryManager {
             if (registry != null) {
                 Set<ResourceLocation> oldEntries = registry.setAndUnlockFromStage(currentStage);
                 registry.registerAll(registryEntries.getOrDefault(registry.getName(), Collections.emptyMap()), ops);
-                registry.postReloadedEntries(oldEntries, missingEntryStrategies.get(name), ops);
+                registry.postReloadedEntries(oldEntries, missingEntryStrategies.getOrDefault(name, Collections.emptySet()), ops);
                 registry.lock();
             } else DynamicRegistries.LOGGER.error(IRegistrableDynamicRegistry.REGISTER, "Registry promotion for {} has returned null, skipping", name);
         });
@@ -292,7 +292,7 @@ public class DynamicRegistryManager {
     public void sendToClient() {
         DynamicRegistries.instance().getChannel().send(PacketDistributor.ALL.noArg(),
                 new DynamicRegistryPacket(this.getName(), this.registries(Lookup.SYNC)
-                        .map(entry -> Pair.of(entry.getKey(), (CompoundNBT) entry.getValue().toSnapshot(NBTDynamicOps.INSTANCE)))
+                        .map(entry -> Pair.of(entry.getKey(), (CompoundTag) entry.getValue().toSnapshot(NbtOps.INSTANCE)))
                         .filter(pair -> Objects.nonNull(pair.getSecond()))
                         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond))
                 )
